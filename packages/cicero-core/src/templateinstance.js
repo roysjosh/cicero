@@ -22,6 +22,7 @@ const Util = require('@accordproject/ergo-compiler').Util;
 const moment = require('moment-mini');
 // Make sure Moment serialization preserves utcOffset. See https://momentjs.com/docs/#/displaying/as-json/
 moment.fn.toJSON = Util.momentToJson;
+const ErgoEngine = require('@accordproject/ergo-engine/index.browser.js').EvalEngine;
 
 const RelationshipDeclaration = require('@accordproject/ergo-compiler').ComposerConcerto.RelationshipDeclaration;
 
@@ -48,6 +49,7 @@ class TemplateInstance {
         this.template = template;
         this.data = null;
         this.composerData = null;
+        this.ergoEngine = new ErgoEngine();
     }
 
     /**
@@ -178,92 +180,25 @@ class TemplateInstance {
      * @returns {string} the natural language text for the contract or clause; created by combining the structure of
      * the template with the JSON data for the clause.
      */
-    generateText(options) {
-        let data;
+    async generateText(options) {
         if(!this.composerData) {
             throw new Error('Data has not been set. Call setData or parse before calling this method.');
-        } else {
-            data = this.composerData;
         }
 
-        const model = this.getTemplate().getTemplateModel();
-
-        const ast = this.getTemplate().getParserManager().getTemplateAst();
-
-        return this.generateTextAux(ast,data,model,options);
-    }
-    /**
-     * Auxiliary function to generate the natural language text for a clause; combining the text from the template
-     * and the clause data.
-     * @param {*} ast current template ast
-     * @param {*} data current composer data used for text generation
-     * @param {*} model current composer model for that data
-     * @param {*} [options] text generation options. options.wrapVariables encloses variables
-     * and editable sections in '<variable ...' and '/>'
-     * @returns {string} the natural language text for the contract or clause; created by combining the structure of
-     * the template with the JSON data for the clause.
-     */
-    generateTextAux(ast,data,model,options) {
-        let result = '';
-
-        for(let n=0; n < ast.data.length; n++) {
-            let textValue = '';
-            let format = '';
-            let property = null;
-            const thing = ast.data[n];
-
-            switch(thing.type) {
-            case 'LastChunk':
-            case 'Chunk':
-                textValue = thing.value;
-                break;
-
-            case 'ClauseBinding': {
-                // Get the property & class model for the Clause
-                property = model.getProperty(thing.fieldName.value);
-                const clauseModel = this.template.getIntrospector().getClassDeclaration(property.getFullyQualifiedTypeName());
-                // Get the data for the Clause
-                const clauseData = data[property.getName()];
-                // Generate text on the template AST
-                textValue = this.generateTextAux(thing.template,clauseData,clauseModel,options);
+        const params = {
+            options: {
+                '$class': 'org.accordproject.markdown.MarkdownOptions',
+                'wrapVariables': options && options.wrapVariables ? options.wrapVariables : false,
             }
-                break;
+        };
+        const logicManager = this.getLogicManager();
+        const clauseId = this.getIdentifier();
+        const contract = this.getData();
 
-            case 'BooleanBinding': {
-                property = model.getProperty(thing.fieldName.value);
-                if(data[property.getName()]) {
-                    textValue = thing.string.value.substring(1,thing.string.value.length-1);
-                }
-            }
-                break;
-
-            case 'FormattedBinding':
-            case 'Binding': {
-                property = model.getProperty(thing.fieldName.value);
-                const value = data[property.getName()];
-                if(thing.format) {
-                    format = thing.format.value;
-                }
-                textValue = this.convertPropertyToString(property, value, thing.format ? thing.format.value : null);
-            }
-                break;
-
-            default:
-                throw new Error('Unrecognized item: ' + thing.type);
-            }
-
-            if(property && options && options.wrapVariables) {
-                textValue = `<variable id="${property.getName()}" value="${encodeURI(textValue)}"`;
-                if(format) {
-                    textValue += ` format=${encodeURI(format)}`;
-                }
-                textValue += '/>';
-            }
-
-            result += textValue;
-        }
-
-        return result;
+        return logicManager.compileLogic(false).then(async () => {
+            const result = await this.ergoEngine.generateText(logicManager,clauseId,contract,params,null);
+            return result.response;
+        });
     }
 
     /**
