@@ -100,13 +100,12 @@ require('yargs')
         try {
             argv = Commands.validateGenerateTextArgs(argv);
             const options = {
-                markdown: argv.markdown,
                 wrapVariables: argv.wrapVariables,
                 warnings: argv.warnings,
             };
             return Commands.generateText(argv.template, argv.data, argv.out, options)
                 .then((result) => {
-                    if(result) {Logger.info(JSON.stringify(result));}
+                    if(result) {Logger.info(result);}
                 })
                 .catch((err) => {
                     Logger.error(err.message);

@@ -314,12 +314,13 @@ class TemplateLoader {
 
         // load and add the template
         let template_txt = await TemplateLoader.loadFileContents(path, 'grammar/template.tem', false, true);
-        template.getLogicManager().addTemplateFile(template_txt,'grammar/template.tem');
         template.parserManager.buildGrammar(template_txt);
         Logger.debug(method, 'Loaded template.tem', template_txt);
 
         // load and add the ergo files
-        if(template.getMetadata().getErgoVersion()) {
+        if(template.getMetadata().getErgoVersion() && template.getMetadata().getRuntime() === 'ergo') {
+            // If Ergo then also register the template
+            template.getLogicManager().addTemplateFile(template_txt,'grammar/template.tem');
             const ergoFiles = await TemplateLoader.loadFilesContents(path, /lib\/.*\.ergo$/);
             ergoFiles.forEach((file) => {
                 const resolvedPath = fsPath.resolve(path);
@@ -330,7 +331,7 @@ class TemplateLoader {
         }
 
         // load and add compiled JS files - we assume all runtimes are JS based (review!)
-        if(template.getMetadata().getRuntime()) {
+        if(template.getMetadata().getRuntime() !== 'ergo') {
             const jsFiles = await TemplateLoader.loadFilesContents(path, /lib\/.*\.js$/);
             jsFiles.forEach((file) => {
                 const resolvedPath = fsPath.resolve(path);
