@@ -26,7 +26,7 @@ contract SimpleLateDeliveryAndPenalty over SimpleLateDeliveryAndPenaltyContract 
     throw ErgoErrorResponse{ message : "Cannot exercise late delivery before delivery date" };
 
     // Calculate the period difference between current date and agreed upon date using the penalty unit
-    let diff = diffPeriodAs(now,agreed,contract.penaltyPeriod.unit).amount;
+    let diff = diffPeriodAs(now(),agreed,contract.penaltyPeriod.unit).amount;
     // Penalty formula
     let penalty =
       (integerToDouble(diff) / integerToDouble(contract.penaltyPeriod.amount))
@@ -45,7 +45,7 @@ contract SimpleLateDeliveryAndPenalty over SimpleLateDeliveryAndPenaltyContract 
 		};
     return SimpleLateDeliveryAndPenaltyResponse{
       penalty: capped,
-      buyerMayTerminate: isAfter(now, addPeriod(agreed,contract.maximumDelay))
+      buyerMayTerminate: isAfter(now(), addPeriod(agreed,contract.maximumDelay))
     }
   }
 }
